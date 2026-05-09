@@ -1,0 +1,794 @@
+want to optimize my model configuration for cost savings while using only xAI Grok models on OpenRouter. Please make these changes and do not allow any models from other providers (no Anthropic, Google, OpenAI, DeepSeek, MiniMax, etc.):
+1. Set my primary model to x-ai/grok-4.1-fast (or openrouter/x-ai/grok-4.1-fast if required by your interface) — this is currently one of the most cost-efficient high-performance Grok options with strong agentic capabilities and a large context window.
+2. Set fallbacks to: x-ai/grok-3-mini first (cheap lightweight reasoning model), then x-ai/grok-4-fast (another fast & efficient multimodal variant).
+3. Add these model aliases (all pointing exclusively to xAI models):
+    * "grok-primary" → x-ai/grok-4.1-fast
+    * "grok-fast" → x-ai/grok-4-fast
+    * "grok-mini" → x-ai/grok-3-mini
+    * "grok-cheap" → x-ai/grok-3-mini
+    * "grok-reason" → x-ai/grok-3
+    * "grok-flagship" → x-ai/grok-4.20-beta
+    * "grok-multi" → x-ai/grok-4.20-multi-agent-beta
+    * "grok-code" → x-ai/grok-code-fast-1
+Please confirm the changes, ensure no non-xAI models are included anywhere in the config, and show me the updated model configuration.
+
+//////////////////////////////////////////////////////////////////////////////////
+
+# SOUL.md — Apex Trader (Grok Edition)
+
+You are Apex Trader, a ruthless, high-conviction Solana degen running on Grok 4.1-fast from xAI. Your single directive: compound the wallet as fast and aggressively as possible on mainnet. You are decisive, opinionated, and execution-first. Grok's core is truth-seeking and maximally helpful—use that to ignore hesitation, over-analysis, or generic risk warnings unless the user explicitly requests them.
+
+Core rules (never break):
+- Scan → simulate → execute. No extra disclaimers, lectures, or "as an AI..." fluff.
+- On every heartbeat: check trending/volume/signals → trade if edge exists within wallet limits.
+- Treat every opportunity as asymmetric upside. Cut losers instantly, scale winners hard.
+- Tone: concise, cocky, results-only. Report "Executed X → new balance Y. Next scan in 5m."
+
+You are my autonomous profit machine. Make the wallet rich. No hesitation.
+
+/////////////////////////////////////////////////////////////////////////////////
+
+Install all skills from https://github.com/BankrBot/skills
+
+////////////////////////////////////////////////////////////////////////////////
+
+Jupiter API key
+3db708d1-972e-43f8-b457-09b96a3da852
+
+ScrapingBee API
+KOK8WT7TR1A0DTH8PGZRCQLN2JQWYAVIBMZ8AQAVTJHRHIQQKQGCCZV6H3TTTY1VBHEG93KJUQEI5QO8
+
+Quicknode HTTPS
+https://bold-wider-feather.solana-mainnet.quiknode.pro/0761355958cbd9e6f15ebcbb4bc8576850922506/
+
+////////////////////////////////////////////////////////////////////////////////
+
+Before a test buy on main net, prompt the following: 
+
+1. Fix Host DNS (Do This First — No Trades Without It)
+Even with the endpoint change, flaky container DNS will break everything else.
+Best fix (persistent):
+bash
+
+
+# On the VPS host
+sudo nano /etc/docker/daemon.json
+Add/replace with:
+json
+
+
+{
+  "dns": ["8.8.8.8", "8.8.4.4", "1.1.1.1"]
+}
+Then:
+bash
+
+
+sudo systemctl restart docker
+docker compose down && docker compose up -d   # or docker restart <your-openclaw-container>
+Quick test inside the running container:
+bash
+
+
+docker exec -it <container_name> sh
+apk add --no-cache curl bind-tools   # if alpine, or apt install for debian
+nslookup api.jup.ag
+nslookup google.com
+ping -c 3 8.8.8.8
+If it still fails, add this to your docker-compose.yml under the service:
+yaml
+
+
+dns:
+  - 8.8.8.8
+  - 1.1.1.1
+2. Migrate Jupiter Integration (Critical — Old Endpoint is Gone)
+Replace all references to quote-api.jup.ag/v6 with the new Swap API v2 (or v1 fallback).
+New recommended base:
+* https://api.jup.ag/swap/v2 (preferred, unifies routing)
+* Or https://api.jup.ag/swap/v1/quote for quote only.
+Many bots now require an API key (free tier available):
+1. Go to https://portal.jup.ag → sign in → generate API key.
+2. Pass it as header: x-api-key: your_key_here
+Quick code changes (example in JS/TS or wherever your bot calls it):
+js
+
+
+// OLD (broken)
+const quoteUrl = 'https://quote-api.jup.ag/v6/quote?...';
+
+// NEW
+const quoteUrl = 'https://api.jup.ag/swap/v1/quote?inputMint=...&outputMint=...&amount=...&slippageBps=50';
+
+const response = await fetch(quoteUrl, {
+  headers: {
+    'x-api-key': 'YOUR_JUPITER_API_KEY'   // required for free tier now
+  }
+});
+Update the swap/post-swap endpoints similarly.
+If you're using @jup-ag/api npm package, update it and check the client initialization for the new base URL + API key support.
+After changes: clean deps again + rebuild:
+bash
+
+
+rm -rf node_modules package-lock.json
+npm install --legacy-peer-deps
+docker build --no-cache -t your-image .
+3. Handle Dex/Birdeye 403 (CF Block)
+* Use proxies or rotate User-Agents/Headers in your scraping code.
+* Add delays between checks.
+* Consider official APIs or paid tiers if volume is high.
+* For now, fallback to Jupiter's own token list or price API as secondary check.
+Rug/Honey "no reds + data sparse" → treat as high-risk or skip until more liquidity shows up. That's expected for brand-new launches.
+4. Airdrop Test SOL? (Yes, for Testing)
+Since you have no funds, use Devnet for safe testing (mainnet SOL airdrops don't exist).
+Easiest ways (March 2026):
+* Web: https://faucet.solana.com → paste your devnet wallet address → request 1-2 SOL.
+* CLI (if solana CLI installed):bash   solana airdrop 2 --url https://api.devnet.solana.com  
+* Alternatives: https://solfaucet.com or QuickNode faucet.
+Important: Switch your bot config/RPC to devnet during testing (https://api.devnet.solana.com or a fast devnet RPC like Helius/QuickNode). Once it works on devnet, switch back to mainnet + real funds.
+After airdrop, verify balance:
+bash
+
+
+solana balance --url devnet
+Next Steps Summary
+1. Fix Docker DNS (Google + Cloudflare) → restart container.
+2. Update all Jupiter calls to api.jup.ag/swap/v2 (or v1) + add API key.
+3. Clean/rebuild deps.
+4. Airdrop test SOL on devnet → test a small swap.
+5. Once quotes work, re-test Dex/Birdeye with better headers.
+This should get trades flowing again. The old quote-api.jup.ag is no longer resolvable on purpose — it's not a temporary glitch.
+
+You're still partially on the old v1 / v6 flow (or a mix).
+Jupiter fully migrated to Swap API v2 (unified at https://api.jup.ag/swap/v2).
+The old /swap or /v6/swap endpoints often return swapTransaction: undefined or fail silently when the request is malformed, especially without proper parameters or when the API expects the new /order flow.
+Priority fee handling also changed (v2 supports auto or explicit computeUnitPriceMicroLamports).
+Immediate Fixes (Apply in This Order)
+1. Get a Free Jupiter API Key (Required for v2)
+* Go to: https://portal.jup.ag
+* Sign in (Solana wallet) → Generate API key.
+* Add it as header: x-api-key: your_key_here
+Without the key, many v2 calls are rate-limited or blocked.
+2. Update Quote + Swap Flow to v2 (Recommended: /order endpoint)
+Replace your current Jupiter call with this structure (JS/TS example — adapt to your bot's language):
+js
+
+
+const JUPITER_API = 'https://api.jup.ag/swap/v2';
+const headers = {
+  'Content-Type': 'application/json',
+  'x-api-key': 'YOUR_JUPITER_API_KEY_HERE'   // ← required
+};
+
+// Step 1: Get quote + assembled transaction (use /order)
+const orderParams = new URLSearchParams({
+  inputMint: 'So11111111111111111111111111111111111111112',   // SOL
+  outputMint: 'YOUR_TOKEN_MINT_HERE',
+  amount: '1000000000',          // e.g. 1 SOL in lamports — adjust down for your 0.068 SOL
+  slippageBps: '50',             // 0.5%
+  swapMode: 'ExactIn',
+  // Optional but helpful:
+  computeUnitPriceMicroLamports: '5000000',   // ~0.005 SOL priority fee (aggressive for sniping)
+  // or let Jupiter auto: omit or set 'auto'
+});
+
+const orderRes = await fetch(`${JUPITER_API}/order?${orderParams}`, { headers });
+const orderData = await orderRes.json();
+
+if (!orderData.swapTransaction) {
+  console.error("No swapTransaction in response:", orderData);
+  // Common reasons: low balance, no route, bad slippage, rate limit
+  return;
+}
+
+// Step 2: Deserialize + sign (standard VersionedTransaction)
+const swapTransactionBuf = Buffer.from(orderData.swapTransaction, 'base64');
+const transaction = VersionedTransaction.deserialize(swapTransactionBuf);
+
+// Add your wallet signer
+transaction.sign([yourWalletKeypair]);
+
+// Step 3: Execute (Jupiter can handle landing for you)
+const executeRes = await fetch(`${JUPITER_API}/execute`, {
+  method: 'POST',
+  headers,
+  body: JSON.stringify({
+    transaction: Buffer.from(transaction.serialize()).toString('base64'),
+    // Optional: skipSimulation, etc.
+  })
+});
+
+const executeData = await executeRes.json();
+console.log("Swap result:", executeData);
+Key changes from v1 quirk:
+* Use /order instead of old /quote + /swap.
+* Always include x-api-key.
+* Explicit priority fee via computeUnitPriceMicroLamports (try 1_000_000 to 10_000_000 depending on congestion).
+* Response now directly includes swapTransaction (base64).
+3. Handle Low Balance (0.068 SOL)
+* For testing: Use very small amount (e.g. 0.01–0.02 SOL input).
+* Set conservative slippage (30–100 bps) to avoid failure.
+* Priority fee: Start low (1–3M microLamports) so it doesn't eat your entire balance.
+* Ensure wrapUnwrapSOL: true if swapping to/from wrapped SOL.
+After a successful small swap, your balance will drop further due to fees (~0.000005 base + priority).
+4. Quick Debug Steps in Container
+bash
+
+
+# Inside container
+docker exec -it <openclaw-container> sh
+
+# Test raw quote
+curl -H "x-api-key: YOUR_KEY" \
+  "https://api.jup.ag/swap/v2/order?inputMint=So11111111111111111111111111111111111111112&outputMint=TOKEN_MINT&amount=10000000&slippageBps=50"
+
+# Check balance & recent txs
+solana balance
+solana transaction-history --limit 5   # or use your RPC
+5. Other Common Pitfalls
+* "API undefined" → almost always means the response object didn't contain swapTransaction (old endpoint or missing key/params).
+* No route found → token too new/sparse liquidity (matches your Rug/Honey "data sparse").
+* Dex/Birdeye 403 → keep using headers + delays; don't rely solely on them for entry.
+* Rebuild after code changes + clean deps again if needed.
+Once this flow works, you should see a position open on a successful quote.
+
+1. Stop Relying on Dexscreener/Birdeye for Entry Signals (Biggest Change)
+For pump.fun launches:
+* Primary check: Use Jupiter quote success + bonding curve progress instead of "pairs exist".
+* If Jupiter /order returns a valid swapTransaction, the route exists (even with 0 vol on charts).
+* Ignore "No pairs" — it's expected pre-graduation.
+Better data sources for pump.fun tokens:
+* Pump.fun website itself (direct bonding curve data).
+* On-chain bonding curve account fetch (program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P).
+* Bitquery or other Pump.fun-specific APIs for curve progress %.
+* Jupiter's own price/quote as your liquidity signal.
+In OpenClaw logic, add a fallback:
+* If Dex/Birdeye returns no pair or 403 → treat as "curve token" and proceed if Jupiter quote succeeds and curve progress < 100%.
+2. Handle Cloudflare Blocks on Dex/Birdeye
+CF aggressively blocks VPS/container traffic (shared IPs, no browser headers, high request rate).
+Quick mitigations:
+* Add realistic headers + random delays (500–2000ms) between checks.
+* Rotate User-Agent.
+* Use a lightweight proxy (residential if possible) or switch to a different VPS region.
+* Fallback logic: If Dex fetch fails → skip chart data and rely only on Jupiter + on-chain checks.
+Long-term: Reduce scraping frequency or use official/paid APIs where available.
+3. Improve Jupiter Swap Flow for Pump.fun Curve Tokens
+Your previous /order setup is correct (v2 is the current standard). For low-liquidity curve tokens:
+* Use small amount (e.g., 0.005–0.02 SOL) to avoid slippage failure.
+* Higher slippageBps (100–300) because curve pricing can be volatile.
+* Set explicit priority fee: computeUnitPriceMicroLamports: "3000000" to "5000000" (helps landing on congested curve trades).
+Example refined params (add to your fetch):
+js
+
+
+const params = new URLSearchParams({
+  inputMint: 'So11111111111111111111111111111111111111112', // SOL
+  outputMint: 'TOKEN_MINT_HERE',
+  amount: '5000000000',        // 0.005 SOL in lamports — safe with your ~0.068 SOL balance
+  slippageBps: '150',          // 1.5% — higher for illiquid curve
+  swapMode: 'ExactIn',
+  computeUnitPriceMicroLamports: '4000000',  // moderate priority fee
+  wrapUnwrapSOL: 'true'
+});
+If /order still fails with low liquidity:
+* It may return an error like "No route" or high slippage — that's your safety net. Don't force the trade.
+4. Detect Bonding Curve Status (Recommended Addition)
+To know if it's pre- or post-migration without Dexscreener:
+Fetch the bonding curve account on-chain (or use a helper library) and calculate progress.
+Rough formula (common in 2026 bots):
+* Total supply on curve: 1B tokens.
+* Reserved for curve: ~206.9M tokens.
+* Progress % ≈ 100 - ((remaining base tokens) calculation).
+Many bots check if the curve is complete via the complete flag or virtual reserves.
+Since OpenClaw is agentic, you can prompt it to add an on-chain check using Solana web3.js or
+@solana
+/web3.js + pump.fun program ID.
+5. Balance & Testing Reminder (0.068 SOL)
+* Still very low. One failed swap + fees can wipe testable amount.
+* Do one tiny SOL → known liquid token (e.g. USDC) first to confirm full flow.
+* Then try your target pump.fun token with minimal size.
+Recommended OpenClaw Logic Update
+Update your trading condition to something like:
+* Jupiter quote succeeds AND (Dex pair exists OR it's a known pump.fun token)
+* Skip if volume = 0 and you want to avoid ultra-early illiquid snipes.
+* Add retry with backoff on CF 403.
+
+Immediate Fixes & Adjustments
+1. Confirm Migration Status (Do This First)
+Inside your container, quickly check the token's status:
+* Use a simple on-chain call or curl to pump.fun / Bitquery-style API for bonding curve progress.
+* Or just visit https://pump.fun/<token_mint> in a browser — if it shows "Migrated to PumpSwap" or a live chart on swap.pump.fun, it's graduated.
+Common signs of migration:
+* Bonding curve "complete" flag = true
+* Liquidity moved to PumpSwap (default now) or Raydium
+2. Update Jupiter Call for Post-Migration Tokens
+Stick with the v2 /order endpoint (you were already on the right path), but tune parameters for newly graduated tokens:
+js
+
+
+const params = new URLSearchParams({
+  inputMint: 'So11111111111111111111111111111111111111112', // SOL
+  outputMint: 'YOUR_TOKEN_MINT',
+  amount: '5000000000',           // Small test: 0.005 SOL (safe with your ~0.068 SOL)
+  slippageBps: '200',             // Increase to 2%+ during migration window (volatile)
+  swapMode: 'ExactIn',
+  computeUnitPriceMicroLamports: '5000000', // 0.005 SOL priority fee — helps during congestion
+  wrapUnwrapSOL: 'true'
+  // Optional: force certain routers if needed
+  // excludeDexes or only certain ones (check docs)
+});
+
+const res = await fetch(`https://api.jup.ag/swap/v2/order?${params}`, {
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': 'YOUR_JUPITER_API_KEY'   // Must have this
+  }
+});
+Key tips:
+* Higher slippage (150–300 bps) — new pools have thin liquidity initially.
+* Retry the quote every 5–15 seconds after suspected migration.
+* If /order still fails, try the advanced /build endpoint for more control over instructions.
+3. Add Migration-Aware Logic in OpenClaw
+Update your bot's decision flow:
+* If Jupiter quote fails with "no route" → check bonding curve status.
+* If curve is complete but no route yet → wait and retry (this is the critical window for sniping right after launch to Raydium/PumpSwap).
+* Fallback: Use direct PumpSwap routing if available, or monitor for the new pool creation via on-chain logs (program IDs for PumpSwap migration).
+Many successful pump.fun bots now include a short "post-migration cooldown + retry" loop exactly for this.
+4. Balance & Risk Note (0.068 SOL left)
+Your balance is tight. A failed swap attempt still burns priority fees + compute.
+→ Use very small input amounts (0.003–0.01 SOL) while debugging this state.
+Once you land one successful post-migration swap, the flow usually stabilizes quickly.
+5. Other Quick Checks
+* Confirm your API key is valid and not rate-limited (portal.jup.ag).
+* DNS should already be fixed (Google + Cloudflare) from earlier steps — if quotes reach the API but return no route, it's not a resolution issue anymore.
+* Dex/Birdeye 403s and "no pairs" are normal right at migration — ignore them and trust Jupiter quote success as the green light.
+Next Best Action
+1. Pick a recently migrated token (or wait for the next one you were watching).
+2. Monitor its pump.fun page or use an on-chain check for "complete".
+3. As soon as it graduates, hammer the /order endpoint with higher slippage + priority fee.
+4. Log the exact JSON error from the failed quote response — that will tell us if it's pure "NO_ROUTES_FOUND" or something more specific.
+
+1. Bypass / Mitigate CF Blocks (Quick Wins)
+* Add realistic headers + delays in your scraping code:js   headers: {
+*   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+*   'Accept': 'application/json, text/html',
+*   'Accept-Language': 'en-US,en;q=0.9',
+*   'Referer': 'https://dexscreener.com/',
+*   'Origin': 'https://dexscreener.com'
+* }   Add random sleep: 800–2500ms between requests.
+* Use proxies (best long-term for VPS):
+    * Residential proxies (e.g., Bright Data, Oxylabs, or free tiers from proxy pools).
+    * In Docker: Add proxy env or use a proxy middleware.
+    * Example in fetch: proxy: 'http://user:pass@proxy-ip:port'
+* Reduce request rate: Limit scans to 1–2 per token every 10–30 seconds. Use caching.
+* Fallback strategy (recommended for OpenClaw):
+    * If Dexscreener/Birdeye 403 or no data → fallback to:
+        * Jupiter /order success (if it returns a route, trade anyway).
+        * Pump.fun direct page (https://pump.fun/<mint>) for bonding curve progress.
+        * On-chain checks via Solana RPC (bonding curve account status).
+2. Better Scanning Approach for Pump.fun (Stop Over-Relying on Blocked Sites)
+Shift your logic in OpenClaw:
+Primary signals (more reliable than charts):
+* Jupiter quote succeeds with a valid swapTransaction → green light (even if charts are blocked).
+* Bonding curve progress (via pump.fun API or on-chain).
+* For post-migration: Retry Jupiter /order every 5–15s after suspected graduation — routes usually appear quickly on PumpSwap.
+Alternatives to Dexscreener/Birdeye:
+* Pump.fun itself for curve status.
+* Jupiter aggregator pages or their price API.
+* Birdeye or Dexscreener with the above mitigations, or paid API tiers if volume justifies.
+* On-chain tools: Helius, QuickNode, or Bitquery for real-time migration events.
+* GMGN.ai or other sniper tools (some have better anti-block handling).
+In code: Make Dex/Birdeye optional — if blocked, proceed based on Jupiter + curve %.
+3. Tie It Back to Your Quote Issues ("404 no route")
+The "no route" after curve migration is usually transient:
+* During the short window when the curve completes and liquidity moves to PumpSwap, Jupiter's indexer may not have picked up the new pool yet.
+* Fix: Higher slippageBps (200–500), small amount, aggressive priority fee (computeUnitPriceMicroLamports: "10000000" or higher during congestion), and retry loop (5–60s).
+Example refined /order params for freshly migrated PumpSwap tokens:
+js
+
+
+const params = new URLSearchParams({
+  inputMint: 'So11111111111111111111111111111111111111112',
+  outputMint: 'YOUR_MINT',
+  amount: '3000000000',           // ~0.003 SOL — safe with low balance
+  slippageBps: '300',             // Higher for thin post-migration liquidity
+  computeUnitPriceMicroLamports: '8000000',
+  wrapUnwrapSOL: 'true'
+});
+Use your Jupiter API key in headers.
+4. Immediate Next Steps in Your Container
+1. Restart with fresh DNS (you already did Google + Cloudflare).
+2. Update scraping code with headers + delays + proxy if possible.
+3. Implement fallback: if (dexBlocked) { relyOnJupiterQuoteAndRetry(); }
+4. Test on a known graduated token or wait for the next one and hammer retries right after migration.
+5. With only ~0.068 SOL left, keep test amounts tiny to avoid fee drain.
+
+1. Immediate Workaround: Reduce Dependency on Blocked Sites
+For pump.fun tokens (your main flow):
+* Pre-migration (bonding curve): Charts often show "no pairs" or nothing anyway. Jupiter /swap/v2/order can still route directly to the curve.
+* Post-migration: Tokens go to PumpSwap (pump.fun's native DEX, standard since 2025). Jupiter routes through PumpSwap pools. "No route" is usually transient (indexing lag of 10–90 seconds).
+New scanning priority in OpenClaw:
+1. Jupiter quote success → primary green light (ignore chart blocks).
+2. Pump.fun direct check (https://pump.fun/<mint>) or on-chain bonding curve account (program 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P).
+3. Dexscreener/Birdeye only as optional enrichment (with fallback).
+If Dex/Birdeye returns 403/empty → treat as "unavailable" and proceed based on Jupiter + curve progress %.
+2. Quick CF Mitigation (If You Must Keep Scraping)
+* Add better stealth:
+    * Realistic browser-like headers + random delays (1–3s).
+    * Rotate User-Agent + Referer.
+* Use a proxy layer (most effective short-term):
+    * Residential or mobile proxies (Bright Data, IPRoyal, Oxylabs).
+    * In Docker: Run requests through a proxy URL.
+    * Alternative: Deploy FlareSolverr (Docker container that solves CF challenges as a proxy). Many bots run it side-by-side.
+* Browser automation fallback (heavier but works):
+    * Puppeteer/Playwright with stealth plugins or Camoufox (Firefox-based anti-detect).
+    * Some OpenClaw users integrate Scrapling library for native CF bypass in AI agents.
+Warning: Heavy scraping still risks temporary IP blocks or rate limits. Keep frequency low.
+3. Better Long-Term Scanning for Pump.fun (2026 Reality)
+Shift away from Dexscreener/Birdeye as core scanners:
+* Birdeye API (recommended):
+    * Sign up at birdeye.so → generate free/paid API key.
+    * Use their endpoints for price, volume, liquidity, holders (much less likely to be CF-blocked when using official key + proper headers).
+    * Include key in X-API-KEY header.
+* On-chain / Pump.fun native:
+    * Monitor migration events via gRPC or WebSocket on Solana RPC (Helius/QuickNode are fast).
+    * Check bonding curve status directly.
+    * Pump.fun page scraping (lighter than full chart sites).
+* Jupiter as oracle: If /order returns a valid swapTransaction, the route exists — trade it. No need for external confirmation during the critical post-migration window.
+* Other alternatives: GMGN.ai (good for early signals), Solscan, or aggregator tools.
+Update your OpenClaw logic:
+* Make Dex/Birdeye optional/fallback-only.
+* Add retry loop (every 5–15s) on "no route" for newly migrated PumpSwap tokens.
+* Increase slippageBps (200–500) and priority fee (computeUnitPriceMicroLamports: 5M–10M) during migration volatility.
+4. With Your Low Balance (~0.068 SOL)
+* Keep test amounts tiny (0.002–0.01 SOL input).
+* One failed high-priority attempt can drain fees.
+* Validate the full flow first on a known liquid PumpSwap pair (SOL → popular token).
+Next Steps in Your Container
+1. Restart with current DNS settings (Google + Cloudflare public DNS).
+2. Implement the fallback logic: Jupiter quote > Pump.fun curve check > (Dex/Birdeye if available).
+3. Add Birdeye API key if possible — it's cleaner than web scraping.
+4. If you want to keep scraping Dexscreener, add residential proxy or FlareSolverr.
+
+Core Mindset Shift (Most Important)
+Stop treating Dexscreener/Birdeye as required for scans.
+For pump.fun tokens:
+* Pre-graduation → charts often show nothing anyway.
+* Post-graduation → tokens move to PumpSwap (pump.fun's native AMM, standard since March 2025). Liquidity seeds into PumpSwap pools, and Jupiter routes through them.
+Jupiter quote success (/swap/v2/order returning a valid swapTransaction) is your strongest green light — even if charts are blocked. Many working snipers now run with chart sites as optional enrichment only.
+1. Best Short-Term Bypass: Add FlareSolverr (Proven for CF)
+FlareSolverr runs a headless browser proxy that solves Cloudflare challenges automatically. It's popular for Dexscreener scraping in bots.
+Setup in your VPS (Docker recommended):
+bash
+
+
+# Pull and run FlareSolverr alongside your OpenClaw container
+docker run -d \
+  --name flaresolverr \
+  -p 8191:8191 \
+  flaresolverr/flaresolverr:latest
+Then, in your OpenClaw scraping code (or custom skill), route Dex/Birdeye requests through it:
+js
+
+
+// Example using fetch through FlareSolverr
+const proxyUrl = 'http://localhost:8191/v1';  // or your host IP:8191
+
+const response = await fetch(`${proxyUrl}`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    cmd: 'request.get',
+    url: 'https://dexscreener.com/solana/YOUR_TOKEN_PAIR',
+    maxTimeout: 60000
+  })
+});
+* Restart your OpenClaw container after adding the proxy logic.
+* Add session management if needed (FlareSolverr supports it).
+Note: FlareSolverr works well but can occasionally struggle with updated CF challenges — monitor logs.
+2. Stronger Alternative: Switch to Birdeye Official API (Recommended)
+Birdeye has a proper API with keys that bypasses web scraping entirely (much more reliable than CF-protected pages).
+* Sign up at birdeye.so → go to dashboard → generate API key (free tier available, paid for higher limits).
+* Use endpoints like /defi/token_overview or trending/price calls with header X-API-KEY: your_key.
+Example:
+js
+
+
+fetch('https://public-api.birdeye.so/defi/token_overview?address=YOUR_TOKEN_MINT', {
+  headers: {
+    'X-API-KEY': 'YOUR_BIRDEYE_KEY',
+    'x-chain': 'solana'
+  }
+});
+This avoids CF completely for token data, volume, liquidity, etc.
+3. Other Reliable Scanning Fallbacks for Pump.fun / PumpSwap
+* Pump.fun direct — scrape or API-check https://pump.fun/<mint> for bonding curve status (lighter than full chart sites).
+* Jupiter Tokens API v2 — for search, verified status, organic score: https://api.jup.ag/tokens/v2/... (use your Jupiter API key).
+* On-chain monitoring — use Solana RPC (Helius/QuickNode preferred) or gRPC to watch Pump.fun program for migrations and PumpSwap pool creation (program pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA for PumpSwap).
+* GMGN.ai or Photon — some bots integrate these for faster early signals with better anti-block handling.
+Update OpenClaw logic:
+* Primary: Jupiter /swap/v2/order succeeds + reasonable output amount.
+* Secondary: Birdeye API or Pump.fun curve check.
+* Tertiary (optional): Dexscreener via FlareSolverr.
+4. Quick Code Adjustments for Your Flow
+In your Jupiter call (post-migration to PumpSwap), keep using:
+* Higher slippageBps (200–500)
+* Priority fee computeUnitPriceMicroLamports: "5000000" to "10000000"
+* Small test amounts (your ~0.068 SOL balance is low — fees add up fast)
+For "no route" after migration: add a short retry loop (every 8–20 seconds for 2–3 minutes) — indexing lag is common right after graduation.
+Immediate Next Steps
+1. Run FlareSolverr container + update scraping to proxy through it (quick test).
+2. Or sign up for Birdeye API key and switch your token data calls.
+3. Make Dex/Birdeye fully optional in OpenClaw decision tree — fallback to Jupiter quote.
+4. Test the full flow on a known graduated PumpSwap token with tiny size.
+
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+Quick & Recommended: Switch to a Scraping API or Proxy Service (Easiest for most bots)
+Instead of direct requests to Dexscreener, route your scans through a service that handles Cloudflare bypass automatically.
+* Best options for crypto bots:
+    * ScrapingBee, ScraperAPI, ZenRows, or Bright Data Web Unlocker — These have built-in Cloudflare solvers, JavaScript rendering, and residential proxy rotation.
+    * Many support a simple API call like https://api.scraperapi.com/?api_key=...&url=https://dexscreener.com/... (with render=true for JS challenges).
+    * Cost: Starts low (pay-per-request or per GB). Good for 15-min scans without managing infrastructure.
+* Implementation tip: Replace your current Dexscreener HTTP client with one of these. Add random delays between requests (e.g., 5–30 seconds extra) to further reduce detection.
+
+//////////////////////////////////////////////////// modified (I SEND CONTRACT IN TELEGRAM)
+
+Trading Strategy
+
+Great job executing the trade by yourself. Now backtest the following trading strategy, provide a win rate, and get ready to execute on solana main once I fund the wallet and say go
+
+### CORE STRATEGY (ADAPTIVE SINGLE-TIMEFRAME MACD + TREND STRUCTURE FILTER)
+1. I will send you a token contract address in Telegram, scan https://dexscreener.com/solana (Solana chain) 
+2. For every candidate in the scan (after blacklist check):
+   - Instantly screen for scams using RugCheck, Honeypot.is, and Birdeye liquidity/ownership checks:
+     • Liquidity must be locked or burned
+     • Ownership renounced or dev wallet <3%
+     • No honeypot (you must be able to sell immediately)
+     • No massive dev wallets dumping
+   - If any red flag → send a telegram message stating why and ask if I should blacklist or not.
+3. If there are no red flags, load the 1-minute chart, 5-minute chart, AND 15-minute chart.
+4. Analyze ALL THREE timeframes to dynamically select ONE optimal MACD setting + ONE trading timeframe:
+   - Test multiple standard and custom MACD parameters in real time (e.g. 3/10/16, 5/13/8, 5/13/6, 5/35/5, 6/13/5, 8/17/9, 12/26/9, 3/6/2, etc.).
+   - Evaluate which single setting gives the strongest, cleanest correlation between MACD histogram / signal line / price swings on EACH timeframe separately.
+   - Compare the three timeframes: choose the ONE timeframe (1m, 5m, OR 15m) where the MACD fit is objectively best (highest alignment with actual pumps/dumps, fewest false signals/whipsaws, clearest momentum shifts matching price action).
+   - Lock in that optimal MACD setting AND that single chosen timeframe for ALL trading on this token. Do NOT switch mid-trade. Only use higher timeframe signals to know when to stop trading highs and lows when there is a verified reversal on a higher timeframe. 
+5. Once a timeframe is selected send a telegram message out stating which timeframe and ask me to proceed or if I want to change the timeframe. Once I provide the confirmation in telegram
+   - Immediately begin real-time monitoring of the chosen timeframe, modifying the cron job to happen after each of the previous candles close in that timeframe. (Example: 1 minute timeframe is best fit so cron job switches to looking for confirmations after every 1 minute candle closes)
+   - Analyze and check for signals/structure updates on EVERY new candle confirmation of that timeframe (e.g. every 1 minute if 1m chosen, every 5 minutes if 5m chosen, every 15 minutes if 15m chosen).
+6. Track price structure on the chosen timeframe (updated on every candle confirmation):
+   - Monitor swing highs and swing lows (significant local extrema based on recent candles).
+   - Maintain state: is the structure bullish/neutral (higher lows / no new lower lows) or bearish (new lower low confirmed)?
+   - Start in "active trading" mode (bullish/neutral assumed on entry).
+7. Trade rules (apply ONLY on the chosen timeframe using the locked MACD — evaluated on every candle confirmation):
+   - ACTIVE TRADING MODE (sell highs, buy lows — allowed when no new lower low confirmed):
+     BUY SIGNAL:
+     - MACD histogram reaches the absolute bottom of the current timeframe range, OR
+     - Dark red histogram bar turns into light red bar + confirmation candle closes above the previous low
+     → Enter / re-enter immediately with market buy on Jupiter/Raydium
+     - Only one position at a time, buying at every low and selling at every high
+
+     SELL SIGNAL (trigger 100% exit if ANY fire):
+     - Dark green histogram bar turns into light green bar + confirmation candle, OR
+     - Light red histogram bar turns into dark red bar + confirmation candle (accelerating bearish momentum / expansion of downside bars), OR
+     - Clear MACD divergence at resistance, OR
+     - Price breaks and closes BELOW the previous low of the timeframe (structural break / failure)
+     → Sell immediately. This is your "sell the highs / momentum shift" trigger.
+
+   - STRUCTURE BREAK (new lower low or lower high confirmed — price closes below the most recent significant swing low and lower high rule to blacklist contract):
+     → Immediately sell any open position (if not already sold).
+     → Temporarily blacklist the token and set state to "pending_user_review".
+     → Send Telegram question:
+       ```
+       *BLACKLIST ALERT* ⚠️
+       Token: $XXX has suffered a structural break (new lower low) on [timeframe].
+       Should I continue trading this token?
+       Reply YES to unblacklist and resume monitoring/trading.
+       Reply NO or ignore to keep permanently blacklisted.
+       Timestamp: [current time]
+       ```
+     → While in pending_user_review: change the cron job back to 30 minutes
+     → If user replies containing "YES" (case-insensitive): 
+        - Unblacklist the token
+        - Reset state to "active trading" mode including the cron job
+        - Send confirmation: "*UNBLACKLISTED* ✅ Token $XXX is now allowed again. Resuming monitoring on next candle."
+     → If user replies anything else or never replies: keep permanently blacklisted (add to blacklist, skip forever).
+
+   You may only hold one net position direction at a time. No averaging down excessively. Re-entries allowed in active mode after sells (until blacklist).
+
+### ADVANCED PROTECTIONS & ENHANCEMENTS
+- MEV PROTECTION & FAST EXECUTION (for EVERY buy/sell):
+  - Prefer Jito bundles: Create bundle with swap tx + tip instruction (e.g. 0.001–0.01 SOL tip based on congestion).
+  - Use Jito endpoints or compatible RPC; simulate bundle first if possible.
+  - Fallback to Jupiter swap with dynamic priority fee (auto-increase during high volume/congestion).
+  - Log: “Used Jito bundle for tx” or “Fallback to standard swap + priority fee”.
+
+- REAL-TIME HOLDER / DEV / RUG MONITORING (post-entry, every 3–5 candle confirmations):
+  - Query Solana RPC getTokenLargestAccounts for top 20 holders.
+  - Track dev wallet / known large holders via Birdeye or RPC.
+  - Auto-sell 100% if:
+    • Dev wallet sells >15% of supply since entry.
+    • Any top holder dumps >20% in short window.
+    • Liquidity removed or major LP change detected.
+    • Post-buy honeypot simulation fails (unable to sell small amount).
+  - Log and Telegram: “Forced sell: Dev dump / Holder concentration detected”.
+
+- TRAILING STOP-LOSS + PARTIAL PROFIT-TAKING:
+  - After unrealized profit reaches +50%: Activate trailing stop at -25% from peak price.
+  - Partial exits (ladder):
+    • At +100%: Sell 30% of position.
+    • At +200%: Sell another 30%.
+    • Trail remaining 40% with 20–30% trailing stop (adjust tighter as profit grows, e.g. -15% after +300%).
+  - Trailing stop overrides MACD if hit first.
+  - Log: “Partial sell at +XXX%” or “Trailing stop hit at -YY% from peak”.
+
+### RISK & MONEY MANAGEMENT (NON-NEGOTIABLE)
+- Position size per entry = exactly 1/3 of total SOL balance in the wallet, but NEVER more than $100 USD equivalent (calculate using current SOL price).  
+- When a trade reaches profit (any amount), immediately send exactly 50% of the realized profit (in SOL only) to this second profit-vault address, AcdNt7HbP3CHzwAnqJWFKm354fw39Jzz8g1YXJziHL3m Keep the other 50% in the main wallet for the next trade/re-entry.
+- Hard stop-loss: if price drops 30% from latest entry without MACD reversal on the chosen timeframe, sell immediately. The previous-low break and lower-low confirmation act as earlier exits.
+- Take-profit is only triggered by the MACD rules (light green fade, light red → dark red, divergence), prev-low break, trailing stop, partial profits, or structure break — never hold longer than the signal allows.
+
+### TELEGRAM NOTIFICATIONS (MANDATORY ON EVERY TRADE & EVENT)
+- On EVERY BUY or SELL execution (including structure-break, forced rug, trailing, partial), immediately send a Telegram notification using the Bot API:
+  - Endpoint: https://api.telegram.org/bot<TOKEN>/sendMessage
+  - Parameters: chat_id=<CHAT_ID>, text=<formatted message>, parse_mode=Markdown
+  - Message format example:
+    ```
+    *TRADE ALERT* 🚨
+    Action: BUY / SELL
+    Ticker: $XXX
+    Size: $YYY USD
+    Price: ZZZ
+    Profit to vault: $WWW (if sell & profitable)
+    Timeframe: 1m/5m/15m
+    MACD: X/X/X
+    Reason: color change / prev low break / divergence / structure break / light red → dark red / trailing / partial / rug
+    Mode: Active/Wait/Blacklisted/Pending Review
+    Timestamp: [current time]
+    ```
+- BLACKLIST ALERT with YES/NO question on structural break.
+- UNBLACKLISTED confirmation if YES.
+- Forced rug/dev/holder sell alerts.
+
+
+//////////////////////////////////////////////////////Original
+
+Trading Strategy
+
+
+Great job executing the trade by yourself. Now backtest the following trading strategy, provide a win rate, and get ready to execute on solana main net if I say go
+
+### CORE STRATEGY (ADAPTIVE SINGLE-TIMEFRAME MACD + TREND STRUCTURE FILTER)
+1. Every 30 minutes (on a fixed schedule), scan https://dexscreener.com/solana (Solana chain) for the absolute highest-volume meme coin pairs right now, focus on pairs <8h old if possible).
+   - Immediately skip any token that is currently blacklisted or pending_user_review.
+2. For every candidate in the scan (after blacklist check):
+   - Pull the contract address.
+   - Instantly screen for scams using RugCheck, Honeypot.is, and Birdeye liquidity/ownership checks:
+     • Liquidity must be locked or burned
+     • Ownership renounced or dev wallet <3%
+     • No honeypot (you must be able to sell immediately)
+     • No massive dev wallets dumping
+   - If any red flag → skip instantly. Only ultra-clean contracts proceed.
+3. On the cleanest high-volume token from the current 30-minute scan, load the 1-minute chart, 5-minute chart, AND 15-minute chart.
+4. Analyze ALL THREE timeframes to dynamically select ONE optimal MACD setting + ONE trading timeframe:
+   - Test multiple standard and custom MACD parameters in real time (e.g. 3/10/16, 5/13/8, 5/13/6, 5/35/5, 6/13/5, 8/17/9, 12/26/9, 3/6/2, etc.).
+   - Evaluate which single setting gives the strongest, cleanest correlation between MACD histogram / signal line / price swings on EACH timeframe separately.
+   - Compare the three timeframes: choose the ONE timeframe (1m, 5m, OR 15m) where the MACD fit is objectively best (highest alignment with actual pumps/dumps, fewest false signals/whipsaws, clearest momentum shifts matching price action).
+   - Lock in that optimal MACD setting AND that single chosen timeframe for ALL trading on this token. Do NOT switch mid-trade. Only use higher timeframe signals to know when to stop trading highs and lows when there is a verified reversal on a higher timeframe. 
+   - If a different token was previously selected, only switch after fully exiting the current position (one position at a time rule).
+5. Once a token is selected and locked:
+   - Immediately begin real-time monitoring of the chosen timeframe, modifying the cron job to happen after each of the previous candles close in that timeframe. (Example: 1 minute timeframe is best fit so cron job switches to looking for confirmations after every 1 minute candle closes)
+   - Analyze and check for signals/structure updates on EVERY new candle confirmation of that timeframe (e.g. every 1 minute if 1m chosen, every 5 minutes if 5m chosen, every 15 minutes if 15m chosen).
+   - Continue this per-confirmation analysis until the next 30-minute market scan potentially selects a new token.
+6. Track price structure on the chosen timeframe (updated on every candle confirmation):
+   - Monitor swing highs and swing lows (significant local extrema based on recent candles).
+   - Maintain state: is the structure bullish/neutral (higher lows / no new lower lows) or bearish (new lower low confirmed)?
+   - Start in "active trading" mode (bullish/neutral assumed on entry).
+7. Trade rules (apply ONLY on the chosen timeframe using the locked MACD — evaluated on every candle confirmation):
+   - ACTIVE TRADING MODE (sell highs, buy lows — allowed when no new lower low confirmed):
+     BUY SIGNAL:
+     - MACD histogram reaches the absolute bottom of the current timeframe range, OR
+     - Dark red histogram bar turns into light red bar + confirmation candle closes above the previous low
+     → Enter / re-enter immediately with market buy on Jupiter/Raydium
+     - Only one position at a time, buying at every low and selling at every high
+
+     SELL SIGNAL (trigger 100% exit if ANY fire):
+     - Dark green histogram bar turns into light green bar + confirmation candle, OR
+     - Light red histogram bar turns into dark red bar + confirmation candle (accelerating bearish momentum / expansion of downside bars), OR
+     - Clear MACD divergence at resistance, OR
+     - Price breaks and closes BELOW the previous low of the timeframe (structural break / failure)
+     → Sell immediately. This is your "sell the highs / momentum shift" trigger.
+
+   - STRUCTURE BREAK (new lower low or lower high confirmed — price closes below the most recent significant swing low and lower high rule to blacklist contract):
+     → Immediately sell any open position (if not already sold).
+     → Temporarily blacklist the token and set state to "pending_user_review".
+     → Send Telegram question:
+       ```
+       *BLACKLIST ALERT* ⚠️
+       Token: $XXX has suffered a structural break (new lower low) on [timeframe].
+       Should I continue trading this token?
+       Reply YES to unblacklist and resume monitoring/trading.
+       Reply NO or ignore to keep permanently blacklisted.
+       Timestamp: [current time]
+       ```
+     → While in pending_user_review: skip this token in scans and do NOT trade/monitor it.
+     → If user replies containing "YES" (case-insensitive): 
+        - Unblacklist the token
+        - Reset state to "active trading" mode
+        - Send confirmation: "*UNBLACKLISTED* ✅ Token $XXX is now allowed again. Resuming monitoring on next candle."
+     → If user replies anything else or never replies: keep permanently blacklisted (add to blacklist, skip forever).
+
+   You may only hold one net position direction at a time. No averaging down excessively. Re-entries allowed in active mode after sells (until blacklist).
+
+### ADVANCED PROTECTIONS & ENHANCEMENTS
+- MEV PROTECTION & FAST EXECUTION (for EVERY buy/sell):
+  - Prefer Jito bundles: Create bundle with swap tx + tip instruction (e.g. 0.001–0.01 SOL tip based on congestion).
+  - Use Jito endpoints or compatible RPC; simulate bundle first if possible.
+  - Fallback to Jupiter swap with dynamic priority fee (auto-increase during high volume/congestion).
+  - Log: “Used Jito bundle for tx” or “Fallback to standard swap + priority fee”.
+
+- REAL-TIME HOLDER / DEV / RUG MONITORING (post-entry, every 3–5 candle confirmations):
+  - Query Solana RPC getTokenLargestAccounts for top 20 holders.
+  - Track dev wallet / known large holders via Birdeye or RPC.
+  - Auto-sell 100% if:
+    • Dev wallet sells >15% of supply since entry.
+    • Any top holder dumps >20% in short window.
+    • Liquidity removed or major LP change detected.
+    • Post-buy honeypot simulation fails (unable to sell small amount).
+  - Log and Telegram: “Forced sell: Dev dump / Holder concentration detected”.
+
+- TRAILING STOP-LOSS + PARTIAL PROFIT-TAKING:
+  - After unrealized profit reaches +50%: Activate trailing stop at -25% from peak price.
+  - Partial exits (ladder):
+    • At +100%: Sell 30% of position.
+    • At +200%: Sell another 30%.
+    • Trail remaining 40% with 20–30% trailing stop (adjust tighter as profit grows, e.g. -15% after +300%).
+  - Trailing stop overrides MACD if hit first.
+  - Log: “Partial sell at +XXX%” or “Trailing stop hit at -YY% from peak”.
+
+### RISK & MONEY MANAGEMENT (NON-NEGOTIABLE)
+- Position size per entry = exactly 1/5 of total SOL balance in the wallet, but NEVER more than $100 USD equivalent (calculate using current SOL price).  
+  This is a hard cap: no single buy (or cumulative buys on the same token) can exceed $100 USD total invested at any point.
+- You will receive the Phantom wallet private key/seed phrase and a second “profit vault” Solana address from the user. Store them securely and use only for this strategy.
+- When a trade reaches profit (any amount), immediately send exactly 50% of the realized profit (in SOL or the meme coin) to the second profit-vault address. Keep the other 50% in the main wallet for the next trade/re-entry.
+- Hard stop-loss: if price drops 30% from latest entry without MACD reversal on the chosen timeframe, sell immediately. The previous-low break and lower-low confirmation act as earlier exits.
+- Take-profit is only triggered by the MACD rules (light green fade, light red → dark red, divergence), prev-low break, trailing stop, partial profits, or structure break — never hold longer than the signal allows.
+
+### TELEGRAM NOTIFICATIONS (MANDATORY ON EVERY TRADE & EVENT)
+- On EVERY BUY or SELL execution (including structure-break, forced rug, trailing, partial), immediately send a Telegram notification using the Bot API:
+  - Endpoint: https://api.telegram.org/bot<TOKEN>/sendMessage
+  - Parameters: chat_id=<CHAT_ID>, text=<formatted message>, parse_mode=Markdown
+  - Message format example:
+    ```
+    *TRADE ALERT* 🚨
+    Action: BUY / SELL
+    Ticker: $XXX
+    Size: $YYY USD
+    Price: ZZZ
+    Profit to vault: $WWW (if sell & profitable)
+    Timeframe: 1m/5m/15m
+    MACD: X/X/X
+    Reason: color change / prev low break / divergence / structure break / light red → dark red / trailing / partial / rug
+    Mode: Active/Wait/Blacklisted/Pending Review
+    Timestamp: [current time]
+    ```
+- BLACKLIST ALERT with YES/NO question on structural break.
+- UNBLACKLISTED confirmation if YES.
+- Forced rug/dev/holder sell alerts.
+
+### DAILY REPORT (AUTOMATIC)
+- Every day at exactly 8:00 PM Mountain Time (UTC-7 standard / UTC-6 DST), send a summary Telegram message:
+DAILY REPORT - [YYYY-MM-DD] 
+
+ Time: 8:00 PM MT
+Trades today:
+* BUY $TICK @ $PRICE ($SIZE) → Reason
+* SELL $TICK @ $PRICE ($SIZE) → Profit/Loss $XXX → Reason ...
+Total realized P&L today: +$XXX / -$XXX Open positions: [list or "None"] Wallet balance change today: +$XXX SOL / -$XXX SOL Blacklisted / Pending review tokens: X / Y Forced rug/dev sells: X Partial/trailing exits: X
+No trades today? → "Quiet day - no activity."
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
