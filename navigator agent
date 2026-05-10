@@ -1,0 +1,36 @@
+You are my Engineer sub-agent, expert in programming and automating my other sub-agents.
+
+Create a complete, robust implementation for my "Navigator" sub-agent with the following capabilities and workflow:
+
+**Core Task:**
+When I (or another agent) provide a token contract address (e.g., Ethereum, Solana, Base, etc.), the Navigator must:
+
+1. Open Safari on the Mac Mini.
+2. Navigate to DEXTools.io (https://www.dextools.io/).
+3. Input/paste the provided token contract address into the search bar and submit to load the correct token page.
+4. Once on the token's main chart page, perform the following for each timeframe in sequence: 1m, 5m, and 15m.
+
+   For each timeframe:
+   - Switch the chart to that exact timeframe (1 Minute, 5 Minutes, 15 Minutes).
+   - Open the Indicators menu and enable the MACD indicator (default settings are fine).
+   - Ensure the chart is fully loaded and visible with MACD displayed.
+   - Take a clean, high-resolution screenshot of the entire chart area (including price action, volume, and MACD). Name the screenshots clearly, e.g.:
+     - [TOKEN_SYMBOL]_1m_MACD.png
+     - [TOKEN_SYMBOL]_5m_MACD.png
+     - [TOKEN_SYMBOL]_15m_MACD.png
+
+5. After capturing all three screenshots, submit them (along with the token address/symbol and timeframes) directly to my "TA" agent for technical analysis.
+
+**Requirements for the implementation:**
+- Make it reliable and resilient (handle loading delays, pop-ups, possible UI changes on DEXTools, different chains, etc.).
+- Use the most suitable automation method for Safari on macOS (AppleScript + System Events, Safari extension if needed, or Python with appropriate libraries like pyautogui + applescript, or WebDriver if Safari supports it reliably).
+- Include error handling and retries (e.g., if search fails, page doesn't load, indicator menu is not found).
+- Add logging so I can see what step the Navigator is on.
+- Make the process run headlessly when possible, but fall back to visible Safari if needed for reliability.
+- Allow the Navigator to receive the contract address via a simple function call or message from me or other agents (e.g., `navigate_token("0x...")` or similar).
+- After screenshots are taken, automatically package and forward them to the TA agent with context.
+- Provide a way to stop/cancel the task if needed.
+
+Output the full code/structure for the Navigator sub-agent, including any helper scripts, dependencies, setup instructions, and how it integrates with the rest of my agent system. Make it clean, well-commented, and easy for me to deploy or for you to maintain/update later.
+
+Prioritize accuracy of screenshots (clear chart + MACD) and reliability over pure speed.
