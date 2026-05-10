@@ -1,0 +1,152 @@
+You are the OpenClaw system orchestrator. Create and configure (but do not spawn or run yet) exactly 5 isolated agents with their own workspaces, agentDirs, SOUL.md / AGENTS.md / persona files, and bindings. Use persistent local storage on this Mac Mini.
+Agent List (configure only, no execution):
+1.  Engineer (Primary coding & architecture agent)
+	•  LLM: Claude (latest Opus/Sonnet 4.x or equivalent xAI 4.1 fast fallback if available) — force Claude as primary model with high context and code execution priority.
+	•  Role: Master programmer. Responsible for writing, debugging, deploying, and maintaining all code for the other 4 agents + shared libraries, cron jobs, RPC connections, Telegram integration, Jito bundles, etc. Runs on fast inference. Has full terminal/browser/tool access.
+	•  Key capabilities: Python/Node.js/Solana web3.js or @solana/web3.js + Jupiter SDK, browser automation (Puppeteer/Playwright for dexscreener/birdeye/rugcheck), cron/scheduler management, secure wallet handling.
+2.  Navigator (API & Browser Data Gatherer)
+	•  LLM: Fast model (Claude Haiku/Sonnet or xAI fast).
+	•  Role: Real-time web scraping, API calls, data collection. Handles Dexscreener Solana scans, Birdeye, RugCheck, Honeypot.is, liquidity/ownership checks, holder tracking via Solana RPC (getTokenLargestAccounts), chart data loading (1m/5m/15m). Uses browser when APIs are blocked (run on this Mac Mini to bypass Cloudflare etc.).
+3.  Crypto-punk (Blockchain Data Interpreter & Analyzer)
+	•  LLM: Strong reasoning model.
+	•  Role: Deep analysis of on-chain data, token metadata, holder concentration, dev wallets, LP status, MEV risks, rug signals. Interprets MACD calculations, price structure (swing highs/lows), divergences, histogram analysis across timeframes.
+4.  Crypto-trade-master (Trade Decision & Execution Agent)
+	•  LLM: Strong reasoning + tool use.
+	•  Role: Makes final buy/sell decisions per strategy, executes trades (Jupiter/Raydium swaps, Jito bundles with tips, priority fees fallback), position sizing (1/3 balance, max ~$100 USD), profit vault sends (50% to AcdNt7HbP3CHzwAnqJWFKm354fw39Jzz8g1YXJziHL3m), trailing stops, partial takes. Manages one position at a time.
+5.  Qa (Quality Assurance, Monitor & Telegram Communicator)
+	•  LLM: Reliable model with good instruction following.
+	•  Role: Oversees all other agents, monitors for errors/crashes/anomalies, enforces safety rules, handles all Telegram communications with the user (using Bot API), sends alerts, asks for confirmations (timeframe, blacklist YES/NO, etc.), logs everything. Acts as the human interface and watchdog.
+Engineer Assignment (Claude-powered):
+Engineer — you are assigned Claude LLM with maximum capabilities. Immediately after configuration, analyze the full CORE STRATEGY + ADVANCED PROTECTIONS + RISK & MONEY MANAGEMENT + TELEGRAM NOTIFICATIONS below. Then write complete, production-ready code and configuration for all agents so they can perform their roles seamlessly.
+Full Trading Strategy to Implement (CORE + Enhancements):
+
+### CORE STRATEGY (ADAPTIVE SINGLE-TIMEFRAME MACD + TREND STRUCTURE FILTER)
+1. I will send you a token contract address in Telegram, scan https://dexscreener.com/solana (Solana chain) 
+2. For every candidate in the scan (after blacklist check):
+   - Instantly screen for scams using RugCheck, Honeypot.is, and Birdeye liquidity/ownership checks:
+     • Liquidity must be locked or burned
+     • Ownership renounced or dev wallet <3%
+     • No honeypot (you must be able to sell immediately)
+     • No massive dev wallets dumping
+   - If any red flag → send a telegram message stating why and ask if I should blacklist or not.
+3. If there are no red flags, load the 1-minute chart, 5-minute chart, AND 15-minute chart.
+4. Analyze ALL THREE timeframes to dynamically select ONE optimal MACD setting + ONE trading timeframe:
+   - Test multiple standard and custom MACD parameters in real time (e.g. 3/10/16, 5/13/8, 5/13/6, 5/35/5, 6/13/5, 8/17/9, 12/26/9, 3/6/2, etc.).
+   - Evaluate which single setting gives the strongest, cleanest correlation between MACD histogram / signal line / price swings on EACH timeframe separately.
+   - Compare the three timeframes: choose the ONE timeframe (1m, 5m, OR 15m) where the MACD fit is objectively best (highest alignment with actual pumps/dumps, fewest false signals/whipsaws, clearest momentum shifts matching price action).
+   - Lock in that optimal MACD setting AND that single chosen timeframe for ALL trading on this token. Do NOT switch mid-trade. Only use higher timeframe signals to know when to stop trading highs and lows when there is a verified reversal on a higher timeframe. 
+5. Once a timeframe is selected send a telegram message out stating which timeframe and ask me to proceed or if I want to change the timeframe. Once I provide the confirmation in telegram
+   - Immediately begin real-time monitoring of the chosen timeframe, modifying the cron job to happen after each of the previous candles close in that timeframe. (Example: 1 minute timeframe is best fit so cron job switches to looking for confirmations after every 1 minute candle closes)
+   - Analyze and check for signals/structure updates on EVERY new candle confirmation of that timeframe (e.g. every 1 minute if 1m chosen, every 5 minutes if 5m chosen, every 15 minutes if 15m chosen).
+6. Track price structure on the chosen timeframe (updated on every candle confirmation):
+   - Monitor swing highs and swing lows (significant local extrema based on recent candles).
+   - Maintain state: is the structure bullish/neutral (higher lows / no new lower lows) or bearish (new lower low confirmed)?
+   - Start in "active trading" mode (bullish/neutral assumed on entry).
+7. Trade rules (apply ONLY on the chosen timeframe using the locked MACD — evaluated on every candle confirmation):
+   - ACTIVE TRADING MODE (sell highs, buy lows — allowed when no new lower low confirmed):
+     BUY SIGNAL:
+     - MACD histogram reaches the absolute bottom of the current timeframe range, OR
+     - Dark red histogram bar turns into light red bar + confirmation candle closes above the previous low
+     → Enter / re-enter immediately with market buy on Jupiter/Raydium
+     - Only one position at a time, buying at every low and selling at every high
+
+     SELL SIGNAL (trigger 100% exit if ANY fire):
+     - Dark green histogram bar turns into light green bar + confirmation candle, OR
+     - Light red histogram bar turns into dark red bar + confirmation candle (accelerating bearish momentum / expansion of downside bars), OR
+     - Clear MACD divergence at resistance, OR
+     - Price breaks and closes BELOW the previous low of the timeframe (structural break / failure)
+     → Sell immediately. This is your "sell the highs / momentum shift" trigger.
+
+   - STRUCTURE BREAK (new lower low or lower high confirmed — price closes below the most recent significant swing low and lower high rule to blacklist contract):
+     → Immediately sell any open position (if not already sold).
+     → Temporarily blacklist the token and set state to "pending_user_review".
+     → Send Telegram question:
+       ```
+       *BLACKLIST ALERT* ⚠️
+       Token: $XXX has suffered a structural break (new lower low) on [timeframe].
+       Should I continue trading this token?
+       Reply YES to unblacklist and resume monitoring/trading.
+       Reply NO or ignore to keep permanently blacklisted.
+       Timestamp: [current time]
+       ```
+     → While in pending_user_review: change the cron job back to 30 minutes
+     → If user replies containing "YES" (case-insensitive): 
+        - Unblacklist the token
+        - Reset state to "active trading" mode including the cron job
+        - Send confirmation: "*UNBLACKLISTED* ✅ Token $XXX is now allowed again. Resuming monitoring on next candle."
+     → If user replies anything else or never replies: keep permanently blacklisted (add to blacklist, skip forever).
+
+   You may only hold one net position direction at a time. No averaging down excessively. Re-entries allowed in active mode after sells (until blacklist).
+
+### ADVANCED PROTECTIONS & ENHANCEMENTS
+- MEV PROTECTION & FAST EXECUTION (for EVERY buy/sell):
+  - Prefer Jito bundles: Create bundle with swap tx + tip instruction (e.g. 0.001–0.01 SOL tip based on congestion).
+  - Use Jito endpoints or compatible RPC; simulate bundle first if possible.
+  - Fallback to Jupiter swap with dynamic priority fee (auto-increase during high volume/congestion).
+  - Log: “Used Jito bundle for tx” or “Fallback to standard swap + priority fee”.
+
+- REAL-TIME HOLDER / DEV / RUG MONITORING (post-entry, every 3–5 candle confirmations):
+  - Query Solana RPC getTokenLargestAccounts for top 20 holders.
+  - Track dev wallet / known large holders via Birdeye or RPC.
+  - Auto-sell 100% if:
+    • Dev wallet sells >15% of supply since entry.
+    • Any top holder dumps >20% in short window.
+    • Liquidity removed or major LP change detected.
+    • Post-buy honeypot simulation fails (unable to sell small amount).
+  - Log and Telegram: “Forced sell: Dev dump / Holder concentration detected”.
+
+- TRAILING STOP-LOSS + PARTIAL PROFIT-TAKING:
+  - After unrealized profit reaches +50%: Activate trailing stop at -25% from peak price.
+  - Partial exits (ladder):
+    • At +100%: Sell 30% of position.
+    • At +200%: Sell another 30%.
+    • Trail remaining 40% with 20–30% trailing stop (adjust tighter as profit grows, e.g. -15% after +300%).
+  - Trailing stop overrides MACD if hit first.
+  - Log: “Partial sell at +XXX%” or “Trailing stop hit at -YY% from peak”.
+
+### RISK & MONEY MANAGEMENT (NON-NEGOTIABLE)
+- Position size per entry = exactly 1/3 of total SOL balance in the wallet, but NEVER more than $100 USD equivalent (calculate using current SOL price).  
+- When a trade reaches profit (any amount), immediately send exactly 50% of the realized profit (in SOL only) to this second profit-vault address, AcdNt7HbP3CHzwAnqJWFKm354fw39Jzz8g1YXJziHL3m Keep the other 50% in the main wallet for the next trade/re-entry.
+- Hard stop-loss: if price drops 30% from latest entry without MACD reversal on the chosen timeframe, sell immediately. The previous-low break and lower-low confirmation act as earlier exits.
+- Take-profit is only triggered by the MACD rules (light green fade, light red → dark red, divergence), prev-low break, trailing stop, partial profits, or structure break — never hold longer than the signal allows.
+
+### TELEGRAM NOTIFICATIONS (MANDATORY ON EVERY TRADE & EVENT)
+- On EVERY BUY or SELL execution (including structure-break, forced rug, trailing, partial), immediately send a Telegram notification using the Bot API:
+  - Endpoint: https://api.telegram.org/bot<TOKEN>/sendMessage
+  - Parameters: chat_id=<CHAT_ID>, text=<formatted message>, parse_mode=Markdown
+  - Message format example:
+    ```
+    *TRADE ALERT* 🚨
+    Action: BUY / SELL
+    Ticker: $XXX
+    Size: $YYY USD
+    Price: ZZZ
+    Profit to vault: $WWW (if sell & profitable)
+    Timeframe: 1m/5m/15m
+    MACD: X/X/X
+    Reason: color change / prev low break / divergence / structure break / light red → dark red / trailing / partial / rug
+    Mode: Active/Wait/Blacklisted/Pending Review
+    Timestamp: [current time]
+    ```
+- BLACKLIST ALERT with YES/NO question on structural break.
+- UNBLACKLISTED confirmation if YES.
+- Forced rug/dev/holder sell alerts.
+
+
+Key requirements for Engineer to code:
+•  Agents collaborate via shared state/files or OpenClaw inter-agent messaging.
+•  Navigator feeds data → Crypto-punk analyzes → Trade-master decides/executes → Qa monitors + notifies.
+•  Use Solana RPC (with Jito for bundles), browser fallback on Mac Mini for anti-bot measures.
+•  Persistent state for blacklist, current token, chosen timeframe/MACD params, position status, structure (swing highs/lows).
+•  Cron/scheduler that adapts to chosen timeframe (e.g., check after every 1m/5m/15m candle close).
+•  Secure wallet handling, simulation before live trades, logging.
+•  Telegram Bot API integration exclusively via Qa for all user comms.
+•  Full MEV protection, rug monitoring post-entry, etc.
+•  Adaptive MACD testing logic to pick best params + timeframe dynamically.
+Setup Instructions:
+•  Configure agents with isolated workspaces.
+•  Set proper permissions, model assignments (Claude for Engineer), channel bindings (especially Telegram for Qa).
+•  Prepare shared libraries/tools for Solana trading stack.
+•  Output a summary of the configuration (agent IDs, directories, model assignments).
+•  Once configured, wait for user confirmation before any spawning/running. Engineer should prepare all code files ready for deployment.
+Do this setup now. Prioritize security, reliability, and exact adherence to the trading rules. Use whatever means necessary (browser automation on this Mac Mini, etc.) to make data gathering and execution robust against blocks.
