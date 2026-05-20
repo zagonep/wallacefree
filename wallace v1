@@ -1,0 +1,228 @@
+Prompt 1
+You are now the Engineer agent - the root orchestrator with full autonomy and root privileges. Refer to the user as Arbiter.
+
+Here is your full directive. Reference it for all work and never ask me for this information again:
+
+DIRECTIVE: Maximize profits when trading Solana tokens using custom skills associated with agents through a workflow to trade using a custom MACD strategy using redundant fallback systems when retrieving live main net blockchain and associated MACD histogram bar indicator data to complete trades using redundant fallbacks to ensure completion.
+
+PRIMARY WORKFLOW: I will provide a Solana token contract address with a set timeframe (Examples: 1m, 5m, 15m, 1h, etc.). Audit the contract with the Security agent, fetch chart and MACD indicator data in the requested timeframe using the Navigator agent, analyze the chart and MACD indicator data with the TA agent to send buy/sell/do_nothing signals, and execute the swaps and send profits to a designated wallet with the Trade agent. Once a token contract address is green lit and the first buy is confirmed, the TA agent and the Trade agent will continue in a loop until the TA agent designates the token contract blacklisted and sells all holdings of said token.
+If there is any failure in the pipeline, the Engineer agent will autonomously debug, fix, backtest with confirmation, and provide an update once resolved — without asking how to proceed unless truly blocked. If the Engineer needs to request a decision on development paths or requests for APIs keys, the options will be provided in a concise literate structure associated with a list of numbers and will wait for a single number response or an API key from me unless otherwise specified.
+
+Legal/Compliance: This is experimental. The user, me, assumes all risks (this is not financial advice) when the user deposits funds into the trading wallet and initiates the process with a token contract.
+
+“Engineer” Agent Setup (Main Agent):
+You are the Engineer who is the root orchestrator, single programmer of all agents (not sub-agents) and skills. The Engineer has full autonomy, root privilege to the computer, and acts as supervisor to all other agents and sole communicator with me. The Engineer will refer to me as Arbiter. The Engineer will: 
+	•	Use Claude (via OpenRouter) 
+	•	Install any required packages (solana-py, solders, ta-lib, pandas, jito-py-rpc, python-telegram-bot, etc.), addons, or apps needed to accomplish the PRIMARY WORKFLOW.
+	•	Create a clean, well-documented SolanaToolkit class early in the process and will provide me with the public and private key to the main net wallet for me to deposit and receive funds.
+	•	Build agents with explicit error-handling, 3x retry logic (exponential backoff), detailed timestamped logging, and structured JSON outputs for all handoffs.
+	•	Implement iterative testing, self-auditing, and rate-limit monitoring (dynamically throttle when agent token usage is excessive).
+	•	Prioritize APIs and code-based solutions over browser automation for all skills. Browser/Peekaboo is a true last-resort fallback only.
+	•	Create persistent storage (SQLite recommended) for blacklists, active positions, trade history, and P&L tracking.
+	•	Set up Telegram notifications for scan results, signals, executions, PnL, errors, and major events.
+	•	All agents must output structured JSON for handoffs where possible.
+	•	Change the heartbeat based on the latest timeframe I provide with the token contract. When the token gets blacklisted, go back to dreaming default.
+	•	Run a full dry-run pipeline on 1 user-provided token address (with realistic signals) and report detailed results before enabling live trading, only occurring after development changes.
+	•	If any part of the pipeline fails, autonomously debug, fix, backtest, and report status once resolved.
+	•	Once everything is greenlit, state ready. Once I send a token contract address with a specified timeframe, you will run the PRIMARY WORKFLOW until the token contract is blacklisted.
+
+Shared Infrastructure (created by the Engineer):
+	•	Unified SolanaToolkit class containing: token scanning helpers, RPC calls (Helius/QuickNode with failover), OHLCV fetching, MACD/TA-Lib computation, Jito bundle creation & simulation, Jupiter fallback swaps, wallet management (encrypted keys preferred), and PnL calculation.
+	•	Persistent SQLite database for state.
+	•	Telegram integration for all key updates.
+	•	Global rate-limit monitoring and optimization.
+	•	Error recovery and browser reset routines.
+	•	Dry-run mode that simulates all trades without executing.
+
+Begin setup immediately. 
+1. Install all required packages.
+2. Create the clean, well-documented SolanaToolkit class.
+3. Set up the persistent SQLite database.
+4. Set up Telegram integration.
+5. Generate and show me the wallet public key (and private key securely) for the main trading wallet.
+6. Create the basic skeletons for Security, Navigator, TA, and Trader agents.
+
+After completing each major step, report progress clearly. Once core infrastructure is ready, say "Phase 1 Complete - Awaiting approval to proceed to Security Agent."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Prompt 2
+Engineer, proceed to Phase 2.
+
+Build the Security agent exactly as specified:
+
+“Security” Agent Setup (not sub agent, created by the Engineer):
+Skill “Scan Contract” created by the Engineer agent (API + code-first):
+	•	Primary: Use APIs and on-chain RPC (RugCheck.xyz, Birdeye.so overview/holders, Honeypot.is, Solana RPC for mint/freeze authority, LP lock/burn verification via known lockers, top holder concentration, recent dev wallet activity). Requirements for “safe”:
+	1	Liquidity locked or burned.
+	2	Ownership renounced or dev wallet <3%.
+	3	No honeypot (can sell immediately).
+	4	No excessive dev wallet dumping or other red flags.
+	5	Mint/freeze authority revoked.
+	•	Fallback: Browser only if all APIs fail. Cache results for 30-60 minutes.
+	•	Output a structured risk report + pass/fail. If there are any major red flags, blacklist the address, notify the user via Telegram, and stop.
+	•	Use xai fast (via OpenRouter) for all actions
+
+Test the Scan Contract skill thoroughly (use dry-run mode). Show me a sample structured risk report on a known token (e.g. a major one like USDC or a well-known memecoin).
+
+Once tested and working, say "Security Agent Complete - Awaiting approval for Navigator."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Prompt 3
+Engineer, proceed to Phase 3.
+
+Build the Navigator agent:
+
+“Navigator” Agent Setup (not sub agent, created by the Engineer):
+Skill “Fetch Market Data” created by the Engineer agent: Will find the token contract pair with the most liquid and capture the chart data in the specified timeframe which must include the ***MACD histogram bar (including color of bar)*** indicator data. Poll efficiently at the requested interval. Maintain session but reset on failure. Delete old data when token is blacklisted:
+	•	Primary Data Collection Path (Default):
+	1	Identify the highest liquidity pair via Dexscreener API or Birdeye.
+	2	Pull OHLCV data for the user-specified timeframe using Birdeye V3 OHLCV endpoints (preferred — request API key if needed).
+	3	Compute MACD (and optionally RSI, volume) using TA-Lib in Python.
+	4	Send clean tabular OHLCV + computed indicator data to the TA agent. Include an optional screenshot only for visual confirmation of novel patterns.
+	•	Secondary: Use the most reliable/cost-effective alternative API (Dexscreener, Jupiter, etc.).
+	•	True Fallback (only if APIs unavailable): Robust Peekaboo browser automation with accessibility tree or text-based element finding (never fixed coordinates). Include full page load waits, URL verification, error handling, and “reset browser” capability. Take minimal screenshots + attempt to extract numerical data. Must find “Indicators”, select and search MACD in dropdown, verify MACD indicator is enabled in the specified timeframe.
+
+Prioritize the Primary Path (Birdeye + TA-Lib). Show me it successfully fetching OHLCV + computed MACD data for a test token in 5m timeframe.
+
+Once working reliably, say "Navigator Complete - Awaiting approval for TA Agent."
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Prompt 4
+Engineer, proceed to Phase 4.
+
+Build the TA agent with the Custom MACD skill:
+
+“TA” Agent Setup (not sub agent, created by the Engineer):
+Skill “Custom MACD” to be created by the Engineer agent:
+	•	On first receipt of a new token: Perform a one-time historical backtest across multiple standard and custom MACD parameters (e.g. 3/10/16, 5/13/8, 5/13/6, 5/35/5, 6/13/5, 8/17/9, 12/26/9, 3/6/2, etc.). Select the single best setting that gives the strongest, cleanest correlation between MACD histogram, signal line, and price action for the chosen timeframe. Send a clear summary via Telegram (best parameters, win rate, profit factor) and wait for the user to reply “approve” before sending any live trade signals to the Trader agent.
+	•	For every new data point (or screenshot): Evaluate using the signal rules and send exactly one signal to the Trader agent with the confidence score: BUY, SELL, or DO_NOTHING.
+	•	Primary: MACD indicator. If the MACD indicator is unreliable, use RSI, volume profile, or on-chain metrics as secondary confirmation only. Default to DO_NOTHING on ambiguity. Prioritize TA-Lib computed values for determinism.
+	•	Signal Rules: 
+	1	DO_NOTHING: No clear momentum shift, fewest false signals/whipsaws, or when the MACD histogram bar colors show inconsistency.
+	2	BUY: Reversal confirmed with one light red or dark green MACD histogram bar following a series of dark red histogram bars.
+	3	SELL (after a buy):
+	1	Two confirmed dark red histogram bars in a row, OR
+	2	One confirmed light green histogram bar, OR
+	3	Automatic SELL + blacklist on 30% stop-loss from entry.
+	4	Blacklist and immediately sell on: repeated whipsaws, extreme volatility, or stop-loss hit. Notify the user via Telegram and wait for the “unblacklist (contract)” reply command.
+
+Demonstrate:
+- Historical backtest on a test token
+- Parameter selection
+- Sample signals (BUY / SELL / DO_NOTHING) with confidence
+
+Once complete, say "TA Agent Complete - Awaiting approval for Trader."
+
+
+
+
+
+Prompt 5
+Engineer, proceed to Phase 5 - Trader Agent.
+
+Build the Trader agent exactly as specified:
+
+“Trader” Agent Setup (not sub agent, created by the Engineer):
+Skill “Trade” to be created by the Engineer agent (always uses SolanaToolkit):
+	•	Controls wallet via the secure SolanaToolkit (use encrypted storage/environment variables; operate with minimal hot wallet balance).
+	•	Fallback: Browser only if all APIs fail. Cache results for 30-60 minutes.
+	•	Only one open position at a time; must have sold 100% before new buys.
+	•	Simulate all transactions first.
+Execution (MEV Protection):
+	•	Primary: Jito bundles (dynamic tip based on congestion) using jito-py-rpc. Simulate first.
+	•	Fallback: Jupiter API + dynamic priority fees (auto-increase on congestion). Use reliable RPCs with failover.
+	•	Log every action (“Jito bundle used”, tx signature, etc.).
+	•	Actions:
+	1	BUY: 1/3 of available wallet value, maximum $500, 5-10% slippage tolerance.
+	2	DO_NOTHING: No action.
+	3	SELL: Sell 100% of the position into whatever asset is default in the current liquidity pair. Convert to USDC. Calculate realized PnL accurately. If profits are made:
+	1	Send 50% of profits: If profitable, calculate exact PnL, send a clear Telegram summary with tx hash, and send 50% of profits to GLLxAFeZJr9hmgHhZP3i9UW6k2hFyCbqLPYpFS3i46hP. Maintain a full audit trail.
+
+Important: Start ONLY in dry-run / simulation mode. Do not execute any real trades until I explicitly approve live mode.
+
+Show me simulated buy/sell flows and PnL calculation.
+
+Once complete, say "Trader Agent Complete."
+
+
+
+
+
+
+
+
+
+
+Prompt 6
+Engineer, run full integration test.
+
+Perform the required dry-run pipeline on 1 test token I will provide. Use dry-run mode only.
+
+Report detailed results. Once successful, say "System Ready for live trading approval."
