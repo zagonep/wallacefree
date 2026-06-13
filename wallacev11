@@ -1,0 +1,71 @@
+You are an expert Python engineer. Build a complete standalone Solana trading bot as a single, well-structured Python application with the following exact requirements. No multi-agent system, no LLM calls at runtime, no OpenRouter, no Claude/Grok routing — everything must run as pure deterministic code.
+Core Requirements
+•  Runs persistently on a Mac (Apple Silicon M1/M2/M3) using Python 3.11+.
+•  Only communicates with the user via Telegram (using python-telegram-bot v20+).
+•  Listens for user commands such as: /start <contract_address> <timeframe> (e.g. /start ABC123...xyz 15m).
+•  Supports common timeframes: 15s, 1m, 5m, 15m, 1h, etc.
+•  Once started on a token + timeframe:
+	1.  Performs security/rug check.
+	2.  Fetches chart data and computes MACD.
+	3.  Runs a continuous monitoring loop with signals.
+	4.  Executes trades autonomously according to rules.
+	5.  Only one active position at a time.
+•  After selling and blacklisting a token, it stops trading that token and waits for the next command.
+•  All operations are local + API-based. No browser automation unless as absolute last-resort fallback.
+Key Features to Implement
+
+Create a simple native-like GUI wrapper using rumps (Rust-backed menu bar app for macOS).
+•  The menu bar app should show:
+	•  Bot status (Running / Idle / Trading TOKEN)
+	•  Current active token + timeframe
+	•  Wallet balance (SOL + USDC)
+	•  Last trade PnL
+	•  Quick menu items: Start/Stop, Status, View Logs, Quit
+•  The GUI should launch the background trading logic (Telegram listener + trading loops) when the app starts.
+•  Clicking the menu bar icon shows current state and quick controls.
+•  The bot must still work fully via Telegram even if the menu bar is hidden.
+
+Telegram Commands (async handler):
+•  /start <token_address> <timeframe> → Start trading this token.
+•  /stop <token_address> → Stop and sell if holding.
+•  /status → Show active positions, balances, PnL.
+•  /blacklist <token_address> / /unblacklist <token_address>
+•  Clear logging and notifications for all major events.
+Security Check (on new token):
+•  Use RugCheck.xyz, Birdeye, Honeypot.is, RPC checks (mint/freeze authority, LP burn/lock, top holders, etc.).
+•  Blacklist and notify on major red flags.
+Data & TA (Navigator + TA combined):
+•  Find highest liquidity pair (Dexscreener or Birdeye API).
+•  Fetch OHLCV data for the requested timeframe (Birdeye preferred, Dexscreener fallback).
+•  Compute MACD using pandas_ta or TA-Lib (standard + several custom periods).
+•  On first token: Run historical backtest, select best MACD parameters, send summary via Telegram and wait for user “approve”.
+•  Signal logic (implement exactly):
+	•  BUY: Reversal with light red or dark green histogram bar after opposite series.
+	•  SELL: Two dark red bars, or one light green, or 30% stop-loss from entry, repeated whipsaws, extreme volatility, or lower highs/lows.
+	•  Default to DO_NOTHING on ambiguity.
+•  Blacklist + full sell on stop-loss or bad behavior. Notify via Telegram.
+Trading Execution (Trader):
+•  Use Jupiter aggregator (preferred) via jupiter-python-sdk or direct API + solana-py / solders.
+•  Jito bundles + priority fees where possible for MEV protection.
+•  Buy: ~1/3 of available SOL balance, max ~$500 equivalent, 5-10% slippage.
+•  Sell: 100% of position → USDC (or highest liquidity quote).
+•  If profitable, automatically send 50% of realized profits to this take-profit wallet: GLLxAFeZJr9hmgHhZP3i9UW6k2hFyCbqLPYpFS3i46hP.
+
+Infrastructure:
+•  Create a clean SolanaToolkit class with wallet management, RPC failover (Helius/QuickNode/public with fallback), swaps, PnL calc, etc.
+	•	Create a solana wallet and provide public and private keys for me to save
+•  Persistent SQLite database for blacklists, positions, trade history, PnL.
+•  Secure key handling: Load private key from environment variable or encrypted file (never hardcode).
+•  Detailed timestamped logging to file + Telegram.
+•  Robust error handling, retries (exponential backoff), rate limiting.
+•  Heartbeat/status command.
+•  Run as background process (instructions for launchd or screen/tmux on Mac).
+Safety & Workflow:
+•  Experimental — include strong disclaimers (not financial advice, user assumes all risk).
+Generate the full project structure with:
+•  requirements.txt
+•  Main bot file
+•  toolkit.py
+•  Clear setup instructions (install, env vars, Telegram token, wallet setup, running on Mac).
+•  Well-documented, modular, production-ready code.
+	•	Request any api keys needed from helium, bird eye , etc. and I will provide.
